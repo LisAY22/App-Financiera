@@ -56,7 +56,7 @@ En [Google Cloud Console](https://console.cloud.google.com) → *APIs y servicio
 URIs de redirección autorizados:
 
 ```
-http://localhost:3000/api/auth/callback/google
+    http://localhost:3000/api/auth/callback/google
 https://TU-DOMINIO.vercel.app/api/auth/callback/google
 ```
 
