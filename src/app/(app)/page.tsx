@@ -59,7 +59,9 @@ export default async function DashboardPage() {
           title="Aún no tienes cuentas"
           description="Cada movimiento sale o entra de una cuenta, así que este es el primer paso. Puedes poner el saldo que tienen hoy y empezar desde ahí."
           action={
-            <Button render={<Link href="/cuentas" />}>Crear mi primera cuenta</Button>
+            <Button nativeButton={false} render={<Link href="/cuentas" />}>
+              Crear mi primera cuenta
+            </Button>
           }
         />
       </>

@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import { db } from "@/db";
+import { SESSION_MAX_AGE_S, SESSION_UPDATE_AGE_S } from "@/lib/session-policy";
 import {
   authAccounts,
   authSessions,
@@ -31,7 +32,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     verificationTokensTable: authVerificationTokens,
   }),
   providers: [Google],
-  session: { strategy: "database" },
+  // La caducidad por inactividad se decide en session-policy.ts, no aquí: el
+  // guardia del cliente tiene que usar el mismo número o los dos cortes se
+  // contradicen. Ver el comentario de ese archivo.
+  session: {
+    strategy: "database",
+    maxAge: SESSION_MAX_AGE_S,
+    updateAge: SESSION_UPDATE_AGE_S,
+  },
   pages: {
     signIn: "/login",
     error: "/login",

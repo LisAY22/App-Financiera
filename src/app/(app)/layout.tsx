@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { seedDefaultsIfNeeded } from "@/db/seed-defaults";
 import { BottomNav, SidebarNav } from "@/components/nav";
 import { UserMenu } from "@/components/user-menu";
+import { IdleGuard } from "@/components/idle-guard";
 import { QuickAdd } from "@/components/transactions/quick-add";
 import { SettingsProvider } from "@/components/settings-provider";
 import { getAccountsWithBalances } from "@/lib/queries/balances";
@@ -78,6 +79,9 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
       <QuickAdd accounts={accounts} categories={categories} people={people} />
       <BottomNav />
+      {/* Vive en el layout, no en cada página: el contador no debe reiniciarse
+          al navegar entre secciones. */}
+      <IdleGuard />
     </div>
     </SettingsProvider>
   );

@@ -6,6 +6,7 @@ import { LogOut, Moon, Settings, Sun } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -59,42 +60,52 @@ export function UserMenu({ name, email, image, compact = false }: Props) {
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="font-normal">
-          <span className="block text-sm font-medium">{name}</span>
-          <span className="block truncate text-xs text-muted-foreground">{email}</span>
-        </DropdownMenuLabel>
+        {/* La etiqueta es un `GroupLabel` de Base UI: nombra al grupo que la
+            sigue vía aria-labelledby, así que fuera de un `Group` no tiene a
+            quién nombrar y lanza. Envolver aquí no es un parche: agrupa la
+            identidad con las acciones que le pertenecen. */}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-normal">
+            <span className="block text-sm font-medium">{name}</span>
+            <span className="block truncate text-xs text-muted-foreground">{email}</span>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+
+          <DropdownMenuItem nativeButton={false} render={<Link href="/configuracion" />}>
+            <Settings className="size-4" />
+            Configuración
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault();
+              setTheme(resolvedTheme === "dark" ? "light" : "dark");
+            }}
+          >
+            {resolvedTheme === "dark" ? (
+              <Sun className="size-4" />
+            ) : (
+              <Moon className="size-4" />
+            )}
+            Tema {resolvedTheme === "dark" ? "claro" : "oscuro"}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem render={<Link href="/configuracion" />}>
-          <Settings className="size-4" />
-          Configuración
-        </DropdownMenuItem>
-
+        {/* Llamada directa a la Server Action en vez de `<form action>`: elegir
+            el ítem cierra el menú, y el popup se desmonta con el formulario
+            dentro antes de que el envío salga. El clic se perdía a veces. */}
         <DropdownMenuItem
+          variant="destructive"
           onSelect={(event) => {
             event.preventDefault();
-            setTheme(resolvedTheme === "dark" ? "light" : "dark");
+            void signOutAction();
           }}
         >
-          {resolvedTheme === "dark" ? (
-            <Sun className="size-4" />
-          ) : (
-            <Moon className="size-4" />
-          )}
-          Tema {resolvedTheme === "dark" ? "claro" : "oscuro"}
+          <LogOut className="size-4" />
+          Cerrar sesión
         </DropdownMenuItem>
-
-        <DropdownMenuSeparator />
-
-        <form action={signOutAction}>
-          <DropdownMenuItem
-            variant="destructive"
-            render={<button type="submit" className="w-full" />}
-          >
-            <LogOut className="size-4" />
-            Cerrar sesión
-          </DropdownMenuItem>
-        </form>
       </DropdownMenuContent>
     </DropdownMenu>
   );
