@@ -47,7 +47,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border p-4",
+        "rounded-2xl border p-3 sm:p-4",
         tone === "primary"
           ? "border-transparent bg-primary text-primary-foreground"
           : "border-border bg-card",
@@ -65,7 +65,10 @@ export function StatCard({
         </p>
         {icon}
       </div>
-      <p className="tabular mt-1.5 text-xl font-semibold tracking-tight md:text-2xl">
+      {/* `text-lg` en teléfono no es solo densidad: con dos columnas a 360 px
+          una cifra como −$12,345.67 no cabe a 20 px y se parte en dos líneas,
+          desalineando toda la fila de tarjetas. */}
+      <p className="tabular mt-1.5 text-lg font-semibold tracking-tight sm:text-xl md:text-2xl">
         {value}
       </p>
       {hint && (
@@ -96,9 +99,14 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl border border-border bg-card p-4", className)}>
+    <section
+      className={cn(
+        "min-w-0 rounded-2xl border border-border bg-card p-3 sm:p-4",
+        className,
+      )}
+    >
       {(title || action) && (
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-2 sm:mb-4">
           <div className="min-w-0">
             {title && <h2 className="text-sm font-semibold">{title}</h2>}
             {description && (

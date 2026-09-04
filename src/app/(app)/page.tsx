@@ -40,12 +40,19 @@ export default async function DashboardPage() {
       getCategoryBreakdown(userId, range, previousRange(range), "expense"),
       getPendingReceivablesTotal(userId),
       getDebts(userId),
-      getTransactions(userId, {}, { limit: 8 }),
+      getTransactions(userId, {}, { limit: 6 }),
       getSettings(userId),
     ]);
 
   const money = (cents: number) => formatMoney(cents, settings);
   const owed = debts.filter((d) => !d.settled).reduce((sum, d) => sum + d.remaining, 0);
+
+  // Lo que queda fuera del disponible, dicho con su monto. Nombrarlo evita la
+  // duda de «¿y dónde está el resto?» al comparar con el patrimonio neto.
+  const outOfReach = [
+    netWorth.savings > 0 ? `${money(netWorth.savings)} de ahorro` : null,
+    owed > 0 ? `${money(owed)} que debes` : null,
+  ].filter((part): part is string => part !== null);
 
   if (accounts.length === 0) {
     return (
@@ -72,9 +79,21 @@ export default async function DashboardPage() {
     <>
       <PageHeader title="Resumen" description="Cómo estás este mes." />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+        {/* La liquidez va primero y es la tarjeta destacada: el patrimonio neto
+            cuenta ahorro que no puedes tocar, así que responde «cuánto valgo»,
+            no «cuánto puedo gastar hoy», que es la pregunta del día a día. */}
         <StatCard
           tone="primary"
+          label="Disponible ahora"
+          value={money(netWorth.liquid)}
+          hint={
+            outOfReach.length > 0
+              ? `No incluye ${outOfReach.join(" ni ")}`
+              : "Banco y efectivo"
+          }
+        />
+        <StatCard
           label="Patrimonio neto"
           value={money(netWorth.net)}
           hint={
@@ -94,6 +113,7 @@ export default async function DashboardPage() {
           hint="Neto de lo que otras personas te reembolsan"
         />
         <StatCard
+          className="max-lg:col-span-2"
           label="Balance del mes"
           value={<Amount cents={kpis.net} signed />}
           hint={
@@ -115,22 +135,25 @@ export default async function DashboardPage() {
           </Link>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {accounts.map((account) => {
             const Icon = ACCOUNT_ICON[account.type];
             return (
               <Link
                 key={account.id}
                 href={`/cuentas/${account.id}`}
-                className="rounded-2xl border border-border bg-card p-4 transition-colors hover:border-primary/40"
+                className="min-w-0 rounded-2xl border border-border bg-card p-3 transition-colors hover:border-primary/40 sm:p-4"
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Icon className="size-4" />
-                    {ACCOUNT_LABEL[account.type]}
+                {/* Envuelve en vez de recortar: a dos columnas en el teléfono
+                    el tipo y la insignia no caben en la misma línea, y la
+                    insignia recortada («Con inter…») no dice nada. */}
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                  <span className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">
+                    <Icon className="size-4 shrink-0" />
+                    <span className="truncate">{ACCOUNT_LABEL[account.type]}</span>
                   </span>
                   {account.interestEnabled && (
-                    <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
+                    <span className="shrink-0 rounded-full bg-accent px-2 py-0.5 text-[10px] font-medium text-accent-foreground">
                       Con intereses
                     </span>
                   )}
@@ -183,7 +206,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+      <div className="mt-6 grid gap-3 sm:gap-4 lg:grid-cols-2">
         <Panel
           title="En qué gastaste este mes"
           description="Montos netos, sin transferencias"
@@ -196,7 +219,10 @@ export default async function DashboardPage() {
             </Link>
           }
         >
-          <CategoryBreakdown slices={categories} />
+          {/* Cinco y no ocho: en el teléfono la tarjeta pasaba de la pantalla
+              entera. El desglose completo vive en Análisis, que es a donde
+              lleva el enlace de arriba. */}
+          <CategoryBreakdown slices={categories} maxItems={5} />
         </Panel>
 
         <Panel

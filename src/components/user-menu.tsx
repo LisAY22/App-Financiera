@@ -1,5 +1,6 @@
 "use client";
 
+import { useTransition } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { LogOut, Moon, Settings, Sun } from "lucide-react";
@@ -32,6 +33,9 @@ function initials(name: string) {
 
 export function UserMenu({ name, email, image, compact = false }: Props) {
   const { resolvedTheme, setTheme } = useTheme();
+  const [leaving, startLeaving] = useTransition();
+
+  const isDark = resolvedTheme === "dark";
 
   const avatar = image ? (
     // eslint-disable-next-line @next/next/no-img-element
@@ -76,18 +80,16 @@ export function UserMenu({ name, email, image, compact = false }: Props) {
             Configuración
           </DropdownMenuItem>
 
+          {/* El popup solo se monta al abrirlo, así que aquí `resolvedTheme` ya
+              está resuelto: no hace falta el típico guardia de hidratación.
+              `closeOnClick={false}` deja ver el cambio y volver atrás sin
+              tener que reabrir el menú. */}
           <DropdownMenuItem
-            onSelect={(event) => {
-              event.preventDefault();
-              setTheme(resolvedTheme === "dark" ? "light" : "dark");
-            }}
+            closeOnClick={false}
+            onClick={() => setTheme(isDark ? "light" : "dark")}
           >
-            {resolvedTheme === "dark" ? (
-              <Sun className="size-4" />
-            ) : (
-              <Moon className="size-4" />
-            )}
-            Tema {resolvedTheme === "dark" ? "claro" : "oscuro"}
+            {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            Tema {isDark ? "claro" : "oscuro"}
           </DropdownMenuItem>
         </DropdownMenuGroup>
 
@@ -95,16 +97,26 @@ export function UserMenu({ name, email, image, compact = false }: Props) {
 
         {/* Llamada directa a la Server Action en vez de `<form action>`: elegir
             el ítem cierra el menú, y el popup se desmonta con el formulario
-            dentro antes de que el envío salga. El clic se perdía a veces. */}
+            dentro antes de que el envío salga. El clic se perdía a veces.
+            `closeOnClick={false}` mantiene el menú en pie hasta que la
+            redirección llega, por el mismo motivo.
+
+            El `startTransition` NO es cosmético: fuera de una transición el
+            router no procesa la redirección que devuelve la acción, así que
+            la sesión se cerraba en el servidor y la pantalla se quedaba igual,
+            como si el botón no hiciera nada. */}
         <DropdownMenuItem
           variant="destructive"
-          onSelect={(event) => {
-            event.preventDefault();
-            void signOutAction();
-          }}
+          closeOnClick={false}
+          disabled={leaving}
+          onClick={() =>
+            startLeaving(async () => {
+              await signOutAction();
+            })
+          }
         >
           <LogOut className="size-4" />
-          Cerrar sesión
+          {leaving ? "Cerrando sesión…" : "Cerrar sesión"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

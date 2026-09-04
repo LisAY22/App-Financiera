@@ -19,20 +19,25 @@ import { cn } from "@/lib/utils";
 export function CategoryBreakdown({
   slices,
   emptyMessage = "Todavía no hay gastos en este periodo.",
+  maxItems,
 }: {
   slices: CategorySlice[];
   emptyMessage?: string;
+  /** Cuántas categorías lista el ranking. Ver `CategoryRanking`. */
+  maxItems?: number;
 }) {
   const format = useMoneyFormatter();
   const visible = slices.filter((s) => s.total > 0);
 
   if (visible.length === 0) return <ChartEmpty message={emptyMessage} />;
 
+  // El total es el del periodo completo, no el de las categorías listadas: es
+  // el gasto del mes, y recortarlo al top N diría un número que no existe.
   const total = visible.reduce((sum, s) => sum + s.total, 0);
 
   return (
-    <div className="grid gap-5 md:grid-cols-[minmax(0,180px)_1fr] md:items-center">
-      <div className="relative mx-auto h-44 w-44">
+    <div className="grid min-w-0 gap-4 md:grid-cols-[minmax(0,180px)_1fr] md:items-center md:gap-5">
+      <div className="relative mx-auto size-32 sm:size-40 md:size-44">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
@@ -82,19 +87,25 @@ export function CategoryBreakdown({
         </div>
       </div>
 
-      <CategoryRanking slices={visible} />
+      <CategoryRanking slices={visible} maxItems={maxItems} />
     </div>
   );
 }
 
 /** El ranking con montos, porcentaje y variación contra el periodo anterior. */
-export function CategoryRanking({ slices }: { slices: CategorySlice[] }) {
+export function CategoryRanking({
+  slices,
+  maxItems = 8,
+}: {
+  slices: CategorySlice[];
+  maxItems?: number;
+}) {
   const format = useMoneyFormatter();
   const max = Math.max(...slices.map((s) => s.total), 1);
 
   return (
-    <ol className="space-y-2.5">
-      {slices.slice(0, 8).map((slice, index) => {
+    <ol className="min-w-0 space-y-2.5">
+      {slices.slice(0, maxItems).map((slice, index) => {
         const delta = slice.previous === 0 ? null : slice.total - slice.previous;
         const deltaPct =
           slice.previous === 0 ? null : ((slice.total - slice.previous) / slice.previous) * 100;

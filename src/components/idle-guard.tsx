@@ -76,11 +76,19 @@ export function IdleGuard() {
     }
   }, []);
 
-  /** Sale y deja constancia del motivo. Idempotente: el tick corre cada segundo. */
+  /**
+   * Sale y deja constancia del motivo. Idempotente: el tick corre cada segundo.
+   *
+   * La transición es obligatoria: fuera de ella el router descarta la
+   * redirección que devuelve la acción y la pestaña se queda abierta con la
+   * sesión ya cerrada por detrás.
+   */
   const endSession = React.useCallback(() => {
     if (closing.current) return;
     closing.current = true;
-    void signOutAction("idle");
+    React.startTransition(async () => {
+      await signOutAction("idle");
+    });
   }, []);
 
   /** «Sigo aquí»: reinicia el contador y revalida la sesión del servidor. */

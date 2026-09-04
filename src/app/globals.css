@@ -81,6 +81,15 @@
 */
 
 :root {
+  /*
+    Sin esto el navegador pinta lo que él controla —barras de scroll, el
+    desplegable nativo de los <select>, el relleno amarillo del autocompletado,
+    los selectores de fecha— según la preferencia del SISTEMA, no según el tema
+    elegido. Con el sistema en oscuro, elegir el tema claro dejaba scrollbars y
+    campos negros sobre la superficie clara: parecía que el tema no cambiaba.
+  */
+  color-scheme: light;
+
   --radius: 0.875rem;
 
   --background: #f8f6fc;
@@ -146,6 +155,8 @@
 }
 
 .dark {
+  color-scheme: dark;
+
   --background: #141221;
   --foreground: oklch(0.96 0.008 300);
   --card: #211d2e;

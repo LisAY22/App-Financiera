@@ -91,6 +91,17 @@ export async function getAccountWithBalance(
 export type NetWorth = {
   /** Suma de todas las cuentas */
   assets: Cents;
+  /**
+   * Lo que puedes gastar hoy: las cuentas de banco y efectivo.
+   *
+   * El ahorro queda FUERA aunque sea tuyo y aunque sume al patrimonio. Sacarlo
+   * significa romper el ahorro —perder el interés, deshacer el plazo—, así que
+   * contarlo como disponible haría creer que tienes margen donde no lo hay. Las
+   * deudas tampoco entran: no viven en ninguna cuenta hasta que las pagas.
+   */
+  liquid: Cents;
+  /** Suma de las cuentas de tipo `savings`. Fuera de la liquidez a propósito. */
+  savings: Cents;
   /** Suma de lo que falta por pagar de las deudas abiertas */
   debt: Cents;
   /** Activos − deudas */
@@ -98,17 +109,27 @@ export type NetWorth = {
 };
 
 /**
- * Patrimonio neto. Las deudas restan aquí y solo aquí: en las cuentas no
- * aparecen, porque una deuda no toca ningún saldo hasta que la pagas.
+ * Patrimonio neto y liquidez. Las deudas restan del neto aquí y solo aquí: en
+ * las cuentas no aparecen, porque una deuda no toca ningún saldo hasta que la
+ * pagas.
  */
 export async function getNetWorth(userId: string): Promise<NetWorth> {
-  const [row] = await rawRows<{ assets: string | number; debt: string | number }>(sql`
+  const [row] = await rawRows<{
+    liquid: string | number;
+    savings: string | number;
+    debt: string | number;
+  }>(sql`
     SELECT
       COALESCE((
         SELECT SUM(${BALANCE_SQL})
         FROM accounts a
-        WHERE a.user_id = ${userId} AND a.archived = false
-      ), 0) AS assets,
+        WHERE a.user_id = ${userId} AND a.archived = false AND a.type <> 'savings'
+      ), 0) AS liquid,
+      COALESCE((
+        SELECT SUM(${BALANCE_SQL})
+        FROM accounts a
+        WHERE a.user_id = ${userId} AND a.archived = false AND a.type = 'savings'
+      ), 0) AS savings,
       COALESCE((
         SELECT SUM(GREATEST(
           d.original_amount - COALESCE((
@@ -120,7 +141,9 @@ export async function getNetWorth(userId: string): Promise<NetWorth> {
       ), 0) AS debt
   `);
 
-  const assets = Number(row?.assets ?? 0);
+  const liquid = Number(row?.liquid ?? 0);
+  const savings = Number(row?.savings ?? 0);
   const debt = Number(row?.debt ?? 0);
-  return { assets, debt, net: assets - debt };
+  const assets = liquid + savings;
+  return { assets, liquid, savings, debt, net: assets - debt };
 }

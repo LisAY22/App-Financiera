@@ -145,6 +145,17 @@ describe("saldos derivados", () => {
     expect(total).toBe(330_000);
   });
 
+  it("deja el ahorro fuera de la liquidez", async () => {
+    const { liquid, savings, assets } = await getNetWorth(USER_ID);
+
+    // 80000 del banco 1 − 50000 del banco 2 + 50000 en efectivo
+    expect(liquid).toBe(80_000);
+    // La cuenta de ahorro entera, incluida la transferencia que le llegó
+    expect(savings).toBe(250_000);
+    // Y las dos juntas siguen siendo el total en cuentas
+    expect(liquid + savings).toBe(assets);
+  });
+
   it("descuenta las deudas propias solo del patrimonio neto", async () => {
     const antes = await getNetWorth(USER_ID);
     expect(antes.assets).toBe(330_000);
@@ -164,6 +175,8 @@ describe("saldos derivados", () => {
     const despues = await getNetWorth(USER_ID);
     // Crear la deuda no toca ningún saldo de cuenta...
     expect(despues.assets).toBe(330_000);
+    // ...ni el disponible: una deuda no se paga sola.
+    expect(despues.liquid).toBe(80_000);
     // ...pero sí baja el patrimonio neto.
     expect(despues.debt).toBe(200_000);
     expect(despues.net).toBe(130_000);

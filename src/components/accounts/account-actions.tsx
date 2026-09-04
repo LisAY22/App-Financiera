@@ -48,12 +48,12 @@ export function AccountActions({ account }: { account: Account }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         {account.archived ? (
-          <DropdownMenuItem disabled={pending} onSelect={handleUnarchive}>
+          <DropdownMenuItem disabled={pending} onClick={handleUnarchive}>
             <ArchiveRestore className="size-4" />
             Restaurar cuenta
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem variant="destructive" disabled={pending} onSelect={handleArchive}>
+          <DropdownMenuItem variant="destructive" disabled={pending} onClick={handleArchive}>
             <Archive className="size-4" />
             Archivar cuenta
           </DropdownMenuItem>

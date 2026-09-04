@@ -49,10 +49,16 @@ export function TransactionList({
         const hasSplits = item.splitCount > 0 && item.netAmount !== item.amount;
 
         return (
-          <li key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+          <li
+            key={item.id}
+            className={cn(
+              "flex items-center gap-2.5 py-3 first:pt-0 last:pb-0 sm:gap-3",
+              compact && "py-2.5",
+            )}
+          >
             <span
               className={cn(
-                "grid size-9 shrink-0 place-items-center rounded-xl bg-muted",
+                "grid size-8 shrink-0 place-items-center rounded-xl bg-muted sm:size-9",
                 meta.tone,
               )}
             >
@@ -91,7 +97,7 @@ export function TransactionList({
               </p>
             </div>
 
-            <div className="shrink-0 text-right">
+            <div className="shrink-0 text-right whitespace-nowrap">
               <p className="text-sm font-medium">
                 <Amount cents={item.netAmount} type={item.type} />
               </p>
@@ -138,10 +144,8 @@ function RowMenu({ id, description }: { id: string; description: string }) {
         <DropdownMenuItem
           variant="destructive"
           disabled={pending}
-          onSelect={(event) => {
-            event.preventDefault();
-            handleDelete();
-          }}
+          closeOnClick={false}
+          onClick={handleDelete}
         >
           <Trash2 className="size-4" />
           {pending ? "Eliminando…" : "Eliminar"}

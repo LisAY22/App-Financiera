@@ -44,14 +44,28 @@ export default async function CuentasPage() {
         action={<AccountDialog />}
       />
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard tone="primary" label="Total en cuentas" value={money(netWorth.assets)} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard
+          tone="primary"
+          label="Disponible ahora"
+          value={money(netWorth.liquid)}
+          hint="Banco y efectivo, sin el ahorro"
+        />
+        <StatCard
+          label="En ahorro"
+          value={money(netWorth.savings)}
+          hint={netWorth.savings === 0 ? "Sin cuentas de ahorro" : "Suma al patrimonio, no al disponible"}
+        />
         <StatCard
           label="Lo que debes"
           value={money(netWorth.debt)}
           hint={netWorth.debt === 0 ? "Sin deudas abiertas" : "No sale de ninguna cuenta hasta que pagues"}
         />
-        <StatCard label="Patrimonio neto" value={money(netWorth.net)} />
+        <StatCard
+          label="Patrimonio neto"
+          value={money(netWorth.net)}
+          hint={`${money(netWorth.assets)} en cuentas`}
+        />
       </div>
 
       <ul className="mt-6 space-y-3">
