@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { people, transactions, transactionSplits } from "@/db/schema";
 import { requireUserId } from "@/auth";
 import { transactionSchema, type TransactionInput } from "@/lib/validation/schemas";
+import { getTransactionWithSplits } from "@/lib/queries/transactions";
 import {
   asBatch,
   fail,
@@ -139,11 +140,12 @@ export async function saveTransaction(
   try {
     if (isEdit) {
       const [existing] = await db
-        .select({ id: transactions.id })
+        .select({ id: transactions.id, debtId: transactions.debtId })
         .from(transactions)
         .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId)))
         .limit(1);
       if (!existing) return fail("Ese movimiento no existe o no es tuyo");
+      if (existing.debtId) return fail("Los movimientos de una deuda se gestionan desde Deudas");
 
       // Las cuotas se reemplazan enteras en vez de reconciliarse una por una:
       // más simple y sin estados intermedios en los que el neto quedaría mal.
@@ -170,6 +172,59 @@ export async function saveTransaction(
 
   revalidateEverything();
   return ok({ id: transactionId });
+}
+
+export type EditableTransaction = {
+  id: string;
+  type: "income" | "expense" | "transfer";
+  amount: number;
+  date: string;
+  description: string;
+  fromAccountId: string | null;
+  toAccountId: string | null;
+  categoryId: string | null;
+  splits: {
+    personId: string;
+    amount: number;
+    settled: boolean;
+    settledAccountId: string | null;
+    settledDate: string | null;
+  }[];
+};
+
+/**
+ * Carga un movimiento con sus cuotas para el formulario de edición.
+ *
+ * Los pagos y desembolsos de deuda no se editan aquí: pertenecen a una deuda y
+ * guardarlos como movimiento suelto rompería el vínculo con ella.
+ */
+export async function getTransactionForEdit(
+  id: string,
+): Promise<ActionResult<EditableTransaction>> {
+  const userId = await requireUserId();
+  const tx = await getTransactionWithSplits(userId, id);
+  if (!tx) return fail("Ese movimiento no existe o no es tuyo");
+  if (tx.type !== "income" && tx.type !== "expense" && tx.type !== "transfer") {
+    return fail("Los movimientos de una deuda se gestionan desde Deudas");
+  }
+
+  return ok({
+    id: tx.id,
+    type: tx.type,
+    amount: tx.amount,
+    date: tx.date,
+    description: tx.description,
+    fromAccountId: tx.fromAccountId,
+    toAccountId: tx.toAccountId,
+    categoryId: tx.categoryId,
+    splits: tx.splits.map((s) => ({
+      personId: s.personId,
+      amount: s.amount,
+      settled: s.status === "settled",
+      settledAccountId: s.settledAccountId,
+      settledDate: s.settledDate,
+    })),
+  });
 }
 
 export async function deleteTransaction(id: string): Promise<ActionResult> {

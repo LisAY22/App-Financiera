@@ -8,6 +8,7 @@ import { UserMenu } from "@/components/user-menu";
 import { IdleGuard } from "@/components/idle-guard";
 import { QuickAdd } from "@/components/transactions/quick-add";
 import { SettingsProvider } from "@/components/settings-provider";
+import { LookupsProvider } from "@/components/lookups-provider";
 import { getAccountsWithBalances } from "@/lib/queries/balances";
 import { getCategories, getPeople, getSettings } from "@/lib/queries/lookups";
 
@@ -36,6 +37,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <SettingsProvider settings={settings}>
+    <LookupsProvider value={{ accounts, categories, people }}>
     <div className="flex min-h-dvh">
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar py-5 md:flex">
         <Link href="/" className="mb-6 flex items-center gap-2.5 px-6">
@@ -83,6 +85,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           al navegar entre secciones. */}
       <IdleGuard />
     </div>
+    </LookupsProvider>
     </SettingsProvider>
   );
 }

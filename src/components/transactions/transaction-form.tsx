@@ -4,9 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import { Plus, Trash2, Users } from "lucide-react";
 import type { Category, Person, TransactionType } from "@/db/schema";
 import type { AccountWithBalance } from "@/lib/queries/balances";
-import { parseMoney, splitEvenly, type Cents } from "@/lib/money";
+import { parseMoney, splitEvenly, toUnits, type Cents } from "@/lib/money";
 import { todayIso } from "@/lib/periods";
-import { saveTransaction } from "@/actions/transactions";
+import { saveTransaction, type EditableTransaction } from "@/actions/transactions";
 import { useMoneyFormatter } from "@/components/settings-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,8 @@ type SplitRow = {
   amount: string;
   settled: boolean;
   settledAccountId: string;
+  /** Solo al editar: conserva la fecha en que ya se cobró la cuota. */
+  settledDate?: string;
 };
 
 type Props = {
@@ -39,6 +41,8 @@ type Props = {
   people: Person[];
   onDone?: () => void;
   defaultType?: TransactionType;
+  /** Si viene, el formulario edita ese movimiento en vez de crear uno nuevo. */
+  initial?: EditableTransaction;
 };
 
 const NEW_PERSON = "__new__";
@@ -54,26 +58,42 @@ function emptySplit(): SplitRow {
   };
 }
 
+const centsToInput = (cents: Cents) => toUnits(cents).toFixed(2);
+
 export function TransactionForm({
   accounts,
   categories,
   people,
   onDone,
   defaultType = "expense",
+  initial,
 }: Props) {
   const format = useMoneyFormatter();
   const [pending, startTransition] = useTransition();
+  const isEdit = Boolean(initial);
 
   const [type, setType] = useState<"income" | "expense" | "transfer">(
-    defaultType === "income" || defaultType === "transfer" ? defaultType : "expense",
+    initial?.type ??
+      (defaultType === "income" || defaultType === "transfer" ? defaultType : "expense"),
   );
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(todayIso());
-  const [description, setDescription] = useState("");
-  const [fromAccountId, setFromAccountId] = useState("");
-  const [toAccountId, setToAccountId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [splits, setSplits] = useState<SplitRow[]>([]);
+  const [amount, setAmount] = useState(initial ? centsToInput(initial.amount) : "");
+  const [date, setDate] = useState(initial?.date ?? todayIso());
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [fromAccountId, setFromAccountId] = useState(initial?.fromAccountId ?? "");
+  const [toAccountId, setToAccountId] = useState(initial?.toAccountId ?? "");
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  const [splits, setSplits] = useState<SplitRow[]>(
+    () =>
+      initial?.splits.map((s) => ({
+        key: crypto.randomUUID(),
+        personId: s.personId,
+        personName: "",
+        amount: centsToInput(s.amount),
+        settled: s.settled,
+        settledAccountId: s.settledAccountId ?? "",
+        settledDate: s.settledDate ?? undefined,
+      })) ?? [],
+  );
   const [errors, setErrors] = useState<Record<string, string[]>>({});
 
   const visibleCategories = useMemo(
@@ -105,6 +125,7 @@ export function TransactionForm({
     setErrors({});
 
     const base = {
+      id: initial?.id,
       amount,
       date,
       description,
@@ -128,7 +149,7 @@ export function TransactionForm({
                   amount: s.amount,
                   settled: s.settled,
                   settledAccountId: s.settled ? s.settledAccountId : undefined,
-                  settledDate: s.settled ? date : undefined,
+                  settledDate: s.settled ? (s.settledDate ?? date) : undefined,
                 })),
             };
 
@@ -139,7 +160,7 @@ export function TransactionForm({
         toast.error(result.error);
         return;
       }
-      toast.success("Movimiento registrado");
+      toast.success(isEdit ? "Movimiento actualizado" : "Movimiento registrado");
       setAmount("");
       setDescription("");
       setSplits([]);
@@ -361,7 +382,7 @@ export function TransactionForm({
       )}
 
       <Button type="submit" className="w-full" size="lg" disabled={pending}>
-        {pending ? "Guardando…" : "Guardar movimiento"}
+        {pending ? "Guardando…" : isEdit ? "Guardar cambios" : "Guardar movimiento"}
       </Button>
     </form>
   );

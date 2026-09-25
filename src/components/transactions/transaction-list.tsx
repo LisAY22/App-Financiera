@@ -1,12 +1,26 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { MoreHorizontal, Trash2, Users } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, Users } from "lucide-react";
+import type { TransactionType } from "@/db/schema";
 import type { TransactionListItem } from "@/lib/queries/transactions";
 import { formatDateLabel } from "@/lib/periods";
-import { deleteTransaction } from "@/actions/transactions";
+import {
+  deleteTransaction,
+  getTransactionForEdit,
+  type EditableTransaction,
+} from "@/actions/transactions";
 import { Amount, TYPE_META } from "@/components/amount";
 import { useMoneyFormatter } from "@/components/settings-provider";
+import { useLookups } from "@/components/lookups-provider";
+import { TransactionForm } from "./transaction-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,7 +122,9 @@ export function TransactionList({
               )}
             </div>
 
-            {!compact && <RowMenu id={item.id} description={item.description} />}
+            {!compact && (
+              <RowMenu id={item.id} type={item.type} description={item.description} />
+            )}
           </li>
         );
       })}
@@ -116,9 +132,23 @@ export function TransactionList({
   );
 }
 
-function RowMenu({ id, description }: { id: string; description: string }) {
+/** Los pagos y desembolsos de deuda se editan desde su deuda, no desde aquí. */
+const EDITABLE_TYPES = new Set<TransactionType>(["income", "expense", "transfer"]);
+
+function RowMenu({
+  id,
+  type,
+  description,
+}: {
+  id: string;
+  type: TransactionType;
+  description: string;
+}) {
+  const { accounts, categories, people } = useLookups();
   const [pending, startTransition] = useTransition();
-  const [confirming, setConfirming] = useState(false);
+  const [loadingEdit, startLoadingEdit] = useTransition();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [editing, setEditing] = useState<EditableTransaction | null>(null);
 
   function handleDelete() {
     startTransition(async () => {
@@ -128,29 +158,75 @@ function RowMenu({ id, description }: { id: string; description: string }) {
         return;
       }
       toast.success("Movimiento eliminado");
-      setConfirming(false);
+      setMenuOpen(false);
+    });
+  }
+
+  function handleEdit() {
+    startLoadingEdit(async () => {
+      const result = await getTransactionForEdit(id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setMenuOpen(false);
+      setEditing(result.data);
     });
   }
 
   return (
-    <DropdownMenu open={confirming} onOpenChange={setConfirming}>
-      <DropdownMenuTrigger
-        className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        aria-label={`Opciones de ${description || "este movimiento"}`}
-      >
-        <MoreHorizontal className="size-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={pending}
-          closeOnClick={false}
-          onClick={handleDelete}
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger
+          className="grid size-8 shrink-0 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`Opciones de ${description || "este movimiento"}`}
         >
-          <Trash2 className="size-4" />
-          {pending ? "Eliminando…" : "Eliminar"}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <MoreHorizontal className="size-4" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {EDITABLE_TYPES.has(type) && (
+            <DropdownMenuItem
+              disabled={loadingEdit}
+              closeOnClick={false}
+              onClick={handleEdit}
+            >
+              <Pencil className="size-4" />
+              {loadingEdit ? "Cargando…" : "Editar"}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem
+            variant="destructive"
+            disabled={pending}
+            closeOnClick={false}
+            onClick={handleDelete}
+          >
+            <Trash2 className="size-4" />
+            {pending ? "Eliminando…" : "Eliminar"}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar movimiento</DialogTitle>
+            <DialogDescription>
+              Los saldos y el análisis se recalculan con los nuevos datos.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editing && (
+            <TransactionForm
+              key={editing.id}
+              accounts={accounts}
+              categories={categories}
+              people={people}
+              initial={editing}
+              onDone={() => setEditing(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
