@@ -24,6 +24,7 @@ vi.mock("@/db", () => ({
 }));
 
 const { getAccountsWithBalances, getNetWorth } = await import("@/lib/queries/balances");
+const { getNetWorthSeries } = await import("@/lib/queries/analytics");
 
 const IDS = {
   banco1: "11111111-1111-4111-8111-111111111111",
@@ -156,11 +157,43 @@ describe("saldos derivados", () => {
     expect(liquid + savings).toBe(assets);
   });
 
+  it("suma al patrimonio lo que te deben, pero no al disponible", async () => {
+    const { assets, liquid, receivable, net } = await getNetWorth(USER_ID);
+
+    // Solo la cuota pendiente de Ana: la cobrada ya está en el efectivo.
+    expect(receivable).toBe(30_000);
+    // El disponible no cambia: ese dinero aún no llega a ninguna cuenta.
+    expect(liquid).toBe(80_000);
+    // 330000 en cuentas + 30000 que te deben
+    expect(net).toBe(assets + 30_000);
+    expect(net).toBe(360_000);
+  });
+
+  it("la evolución del patrimonio también cuenta lo que te deben", async () => {
+    const series = await getNetWorthSeries(
+      USER_ID,
+      { from: "2026-02-01", to: "2026-03-31" },
+      "month",
+    );
+    const [febrero, marzo] = series;
+
+    // Antes del gasto compartido no había nada por cobrar.
+    expect(febrero.receivable).toBe(0);
+    expect(febrero.net).toBe(370_000);
+
+    // La cuota cobrada nace y se apaga en marzo; solo queda la pendiente.
+    expect(marzo.receivable).toBe(30_000);
+    expect(marzo.assets).toBe(330_000);
+    // Y el último punto coincide con la tarjeta de patrimonio neto.
+    expect(marzo.net).toBe((await getNetWorth(USER_ID)).net);
+  });
+
   it("descuenta las deudas propias solo del patrimonio neto", async () => {
     const antes = await getNetWorth(USER_ID);
     expect(antes.assets).toBe(330_000);
     expect(antes.debt).toBe(0);
-    expect(antes.net).toBe(330_000);
+    // 330000 en cuentas + 30000 que te deben
+    expect(antes.net).toBe(360_000);
 
     await db.insert(schema.debts).values({
       userId: USER_ID,
@@ -179,7 +212,7 @@ describe("saldos derivados", () => {
     expect(despues.liquid).toBe(80_000);
     // ...pero sí baja el patrimonio neto.
     expect(despues.debt).toBe(200_000);
-    expect(despues.net).toBe(130_000);
+    expect(despues.net).toBe(160_000);
   });
 });
 

@@ -104,20 +104,27 @@ export type NetWorth = {
   savings: Cents;
   /** Suma de lo que falta por pagar de las deudas abiertas */
   debt: Cents;
-  /** Activos − deudas */
+  /**
+   * Cuotas de gastos compartidos que otras personas aún no te pagan. No vive
+   * en ninguna cuenta (no está disponible), pero es dinero tuyo esperando a
+   * llegar, así que suma al patrimonio.
+   */
+  receivable: Cents;
+  /** Activos + lo que te deben − deudas */
   net: Cents;
 };
 
 /**
- * Patrimonio neto y liquidez. Las deudas restan del neto aquí y solo aquí: en
- * las cuentas no aparecen, porque una deuda no toca ningún saldo hasta que la
- * pagas.
+ * Patrimonio neto y liquidez. Las deudas restan del neto y lo que te deben
+ * suma, aquí y solo aquí: en las cuentas no aparecen, porque ninguna de las
+ * dos toca un saldo hasta que se paga.
  */
 export async function getNetWorth(userId: string): Promise<NetWorth> {
   const [row] = await rawRows<{
     liquid: string | number;
     savings: string | number;
     debt: string | number;
+    receivable: string | number;
   }>(sql`
     SELECT
       COALESCE((
@@ -138,12 +145,17 @@ export async function getNetWorth(userId: string): Promise<NetWorth> {
           ), 0), 0))
         FROM debts d
         WHERE d.user_id = ${userId}
-      ), 0) AS debt
+      ), 0) AS debt,
+      COALESCE((
+        SELECT SUM(s.amount) FROM transaction_splits s
+        WHERE s.user_id = ${userId} AND s.status = 'pending'
+      ), 0) AS receivable
   `);
 
   const liquid = Number(row?.liquid ?? 0);
   const savings = Number(row?.savings ?? 0);
   const debt = Number(row?.debt ?? 0);
+  const receivable = Number(row?.receivable ?? 0);
   const assets = liquid + savings;
-  return { assets, liquid, savings, debt, net: assets - debt };
+  return { assets, liquid, savings, debt, receivable, net: assets + receivable - debt };
 }

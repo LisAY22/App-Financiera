@@ -64,7 +64,11 @@ export default async function CuentasPage() {
         <StatCard
           label="Patrimonio neto"
           value={money(netWorth.net)}
-          hint={`${money(netWorth.assets)} en cuentas`}
+          hint={
+            netWorth.receivable > 0
+              ? `${money(netWorth.assets)} en cuentas + ${money(netWorth.receivable)} que te deben`
+              : `${money(netWorth.assets)} en cuentas`
+          }
         />
       </div>
 

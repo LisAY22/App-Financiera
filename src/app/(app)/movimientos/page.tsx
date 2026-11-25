@@ -6,7 +6,7 @@ import {
 } from "@/lib/queries/transactions";
 import { getCategories } from "@/lib/queries/lookups";
 import { getAccountsWithBalances } from "@/lib/queries/balances";
-import { isRangePreset, resolveRange, type RangePreset } from "@/lib/periods";
+import { rangeFromParams, selectionLabel } from "@/lib/periods";
 import type { TransactionType } from "@/db/schema";
 import { PageHeader, Panel } from "@/components/shell";
 import { TransactionList } from "@/components/transactions/transaction-list";
@@ -29,10 +29,7 @@ export default async function MovimientosPage(props: PageProps<"/movimientos">) 
   const userId = await requireUserId();
   const params = await props.searchParams;
 
-  const rangePreset: RangePreset = isRangePreset(params.rango)
-    ? params.rango
-    : "last-3-months";
-  const range = resolveRange(rangePreset);
+  const { selection, range } = rangeFromParams(params, "last-3-months");
 
   const typeParam = typeof params.tipo === "string" ? params.tipo : undefined;
   const categoryParam = typeof params.categoria === "string" ? params.categoria : undefined;
@@ -66,13 +63,14 @@ export default async function MovimientosPage(props: PageProps<"/movimientos">) 
     <>
       <PageHeader
         title="Movimientos"
-        description={`${total} movimiento${total === 1 ? "" : "s"} en el periodo`}
+        description={`${total} movimiento${total === 1 ? "" : "s"} · ${selectionLabel(selection, range)}`}
       />
 
       <TransactionFiltersBar
         categories={categories}
         accounts={accounts}
-        range={rangePreset}
+        selection={selection}
+        range={range}
         type={typeParam}
         categoryId={categoryParam}
         accountId={accountParam}

@@ -12,12 +12,10 @@ import {
   defaultGranularity,
   formatBucketFull,
   isGranularity,
-  isRangePreset,
   previousRange,
-  RANGE_LABELS,
-  resolveRange,
+  rangeFromParams,
+  selectionLabel,
   type Granularity,
-  type RangePreset,
 } from "@/lib/periods";
 import { formatMoney } from "@/lib/money";
 import { PageHeader, Panel, StatCard } from "@/components/shell";
@@ -32,10 +30,7 @@ export default async function AnalisisPage(props: PageProps<"/analisis">) {
   const userId = await requireUserId();
   const params = await props.searchParams;
 
-  const rangePreset: RangePreset = isRangePreset(params.rango)
-    ? params.rango
-    : "last-6-months";
-  const range = resolveRange(rangePreset);
+  const { selection, range } = rangeFromParams(params, "last-6-months");
 
   const granularity: Granularity = isGranularity(params.agrupar)
     ? params.agrupar
@@ -63,7 +58,10 @@ export default async function AnalisisPage(props: PageProps<"/analisis">) {
         description="Montos netos, sin transferencias ni dinero que solo cambió de bolsillo."
       />
 
-      <PeriodControls range={rangePreset} granularity={granularity} className="mb-5" />
+      <PeriodControls
+        selection={selection}
+        range={range}
+        granularity={granularity} className="mb-5" />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -95,7 +93,7 @@ export default async function AnalisisPage(props: PageProps<"/analisis">) {
       <div className="mt-4 space-y-4">
         <Panel
           title="Ingresos vs egresos"
-          description={`Agrupado por ${periodWord} · ${RANGE_LABELS[rangePreset]}`}
+          description={`Agrupado por ${periodWord} · ${selectionLabel(selection, range)}`}
         >
           <IncomeExpenseChart data={series} granularity={granularity} />
         </Panel>
@@ -119,7 +117,7 @@ export default async function AnalisisPage(props: PageProps<"/analisis">) {
         <div className="grid gap-4 lg:grid-cols-2">
           <Panel
             title="Evolución del patrimonio"
-            description="Saldo acumulado de tus cuentas, menos lo que debes"
+            description="Saldo de tus cuentas más lo que te deben, menos lo que debes"
           >
             <NetWorthChart data={netWorth} granularity={granularity} />
           </Panel>

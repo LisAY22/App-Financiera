@@ -97,8 +97,14 @@ export default async function DashboardPage() {
           label="Patrimonio neto"
           value={money(netWorth.net)}
           hint={
-            owed > 0
-              ? `${money(netWorth.assets)} en cuentas − ${money(owed)} que debes`
+            netWorth.receivable > 0 || owed > 0
+              ? [
+                  `${money(netWorth.assets)} en cuentas`,
+                  netWorth.receivable > 0 ? `+ ${money(netWorth.receivable)} que te deben` : null,
+                  owed > 0 ? `− ${money(owed)} que debes` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ")
               : `${money(netWorth.assets)} repartidos en tus cuentas`
           }
         />

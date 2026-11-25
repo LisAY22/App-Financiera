@@ -330,13 +330,18 @@ export async function getKpis(
 export type NetWorthPoint = {
   bucket: IsoDate;
   assets: Cents;
+  /** Cuotas de gastos compartidos que aún no te pagaban al cierre del periodo */
+  receivable: Cents;
   debt: Cents;
   net: Cents;
 };
 
 /**
- * Saldo acumulado de todas las cuentas al cierre de cada periodo, menos la
- * deuda viva en ese momento.
+ * Saldo acumulado de todas las cuentas al cierre de cada periodo, más lo que te
+ * debían y menos la deuda viva en ese momento.
+ *
+ * Una cuota por cobrar nace con el gasto compartido y se apaga el día que te la
+ * pagan: ese mismo día el dinero entra a una cuenta, así que el neto no salta.
  *
  * A diferencia del resto del análisis, aquí SÍ entran transferencias y
  * desembolsos: para el patrimonio importa el movimiento real de dinero, no si
@@ -396,6 +401,24 @@ export async function getNetWorthSeries(
     ORDER BY 1
   `);
 
+  const receivableRows = await rawRows<{ bucket: string; delta: string | number }>(sql`
+    SELECT ${sql.raw(`date_trunc('${granularity}', d.date)::date`)} AS bucket,
+           SUM(d.delta) AS delta
+    FROM (
+      SELECT t.date, s.amount AS delta
+      FROM ${transactionSplits} s
+      JOIN ${transactions} t ON t.id = s.transaction_id
+      WHERE s.user_id = ${userId}
+      UNION ALL
+      SELECT s.settled_date AS date, -s.amount AS delta
+      FROM ${transactionSplits} s
+      WHERE s.user_id = ${userId} AND s.status = 'settled' AND s.settled_date IS NOT NULL
+    ) d
+    WHERE d.date <= ${range.to}
+    GROUP BY 1
+    ORDER BY 1
+  `);
+
   const deltaByBucket = new Map<string, number>();
   for (const r of movements) {
     const key = String(r.bucket).slice(0, 10);
@@ -409,19 +432,35 @@ export async function getNetWorthSeries(
     debtDeltaByBucket.set(key, (debtDeltaByBucket.get(key) ?? 0) + delta);
   }
 
+  const receivableDeltaByBucket = new Map<string, number>();
+  for (const r of receivableRows) {
+    const key = String(r.bucket).slice(0, 10);
+    receivableDeltaByBucket.set(key, (receivableDeltaByBucket.get(key) ?? 0) + Number(r.delta));
+  }
+
   // Todo lo anterior al primer bucket visible se acumula en el punto de partida,
   // para que la línea no empiece en cero e invente una caída que no existió.
   const first = buckets[0];
   let assets = initialRow?.total ?? 0;
   let debt = 0;
+  let receivable = 0;
   for (const [key, delta] of deltaByBucket) if (key < first) assets += delta;
   for (const [key, delta] of debtDeltaByBucket) if (key < first) debt += delta;
+  for (const [key, delta] of receivableDeltaByBucket) if (key < first) receivable += delta;
 
   return buckets.map((bucket) => {
     assets += deltaByBucket.get(bucket) ?? 0;
     debt += debtDeltaByBucket.get(bucket) ?? 0;
+    receivable += receivableDeltaByBucket.get(bucket) ?? 0;
     const outstanding = Math.max(debt, 0);
-    return { bucket, assets, debt: outstanding, net: assets - outstanding };
+    const owedToYou = Math.max(receivable, 0);
+    return {
+      bucket,
+      assets,
+      receivable: owedToYou,
+      debt: outstanding,
+      net: assets + owedToYou - outstanding,
+    };
   });
 }
 

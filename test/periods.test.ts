@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   bucketKey,
   enumerateBuckets,
+  formatRangeLabel,
+  isIsoDate,
   previousRange,
+  rangeFromParams,
   resolveRange,
 } from "@/lib/periods";
 
@@ -80,5 +83,55 @@ describe("resolveRange y previousRange", () => {
     const previous = previousRange(current);
     expect(previous).toEqual({ from: "2026-01-29", to: "2026-02-28" });
     expect(previous.to < current.from).toBe(true);
+  });
+});
+
+describe("rango personalizado", () => {
+  const REF = new Date(2026, 10, 24); // 24 nov 2026
+
+  it("usa desde/hasta cuando los dos son fechas válidas", () => {
+    const result = rangeFromParams(
+      { rango: "this-month", desde: "2026-03-05", hasta: "2026-04-20" },
+      "last-6-months",
+      REF,
+    );
+    expect(result.selection).toBe("custom");
+    expect(result.range).toEqual({ from: "2026-03-05", to: "2026-04-20" });
+  });
+
+  it("voltea un rango al revés en vez de dejarlo vacío", () => {
+    const { range } = rangeFromParams(
+      { desde: "2026-04-20", hasta: "2026-03-05" },
+      "last-6-months",
+      REF,
+    );
+    expect(range).toEqual({ from: "2026-03-05", to: "2026-04-20" });
+  });
+
+  it("cae al preset si falta una fecha o es inválida", () => {
+    expect(rangeFromParams({ desde: "2026-03-05" }, "this-month", REF)).toEqual({
+      selection: "this-month",
+      range: { from: "2026-11-01", to: "2026-11-30" },
+    });
+    expect(
+      rangeFromParams({ rango: "this-year", desde: "2026-02-31", hasta: "2026-03-01" }, "this-month", REF)
+        .selection,
+    ).toBe("this-year");
+  });
+
+  it("valida fechas civiles de verdad", () => {
+    expect(isIsoDate("2026-02-28")).toBe(true);
+    expect(isIsoDate("2026-02-31")).toBe(false);
+    expect(isIsoDate("2026-2-3")).toBe(false);
+    expect(isIsoDate(undefined)).toBe(false);
+    expect(isIsoDate(["2026-02-28"])).toBe(false);
+  });
+
+  it("etiqueta el rango en español y sin repetir el año si no hace falta", () => {
+    expect(formatRangeLabel({ from: "2026-03-01", to: "2026-04-15" })).toBe("1 mar – 15 abr 2026");
+    expect(formatRangeLabel({ from: "2025-12-20", to: "2026-01-10" })).toBe(
+      "20 dic 2025 – 10 ene 2026",
+    );
+    expect(formatRangeLabel({ from: "2026-03-01", to: "2026-03-01" })).toBe("1 mar 2026");
   });
 });
