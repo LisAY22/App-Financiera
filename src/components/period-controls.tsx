@@ -4,18 +4,11 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import {
   GRANULARITIES,
-  RANGE_LABELS,
-  RANGE_PRESETS,
+  type DateRange,
   type Granularity,
-  type RangePreset,
+  type RangeSelection,
 } from "@/lib/periods";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { RangePicker, type RangeParamUpdate } from "@/components/range-picker";
 import { cn } from "@/lib/utils";
 
 /**
@@ -26,11 +19,13 @@ import { cn } from "@/lib/utils";
  * recalcula con los mismos parámetros sin un viaje extra.
  */
 export function PeriodControls({
+  selection,
   range,
   granularity,
   className,
 }: {
-  range: RangePreset;
+  selection: RangeSelection;
+  range: DateRange;
   granularity: Granularity;
   className?: string;
 }) {
@@ -38,10 +33,13 @@ export function PeriodControls({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const setParam = useCallback(
-    (key: string, value: string) => {
+  const setParams = useCallback(
+    (update: RangeParamUpdate & { agrupar?: string }) => {
       const params = new URLSearchParams(searchParams.toString());
-      params.set(key, value);
+      for (const [key, value] of Object.entries(update)) {
+        if (value) params.set(key, value);
+        else params.delete(key);
+      }
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router, searchParams],
@@ -49,26 +47,7 @@ export function PeriodControls({
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      {/*
-        `items` mapea valor → etiqueta. Sin él, Base UI pinta la clave cruda en
-        el botón cerrado ("last-6-months" en vez de "Últimos 6 meses").
-      */}
-      <Select
-        items={RANGE_LABELS}
-        value={range}
-        onValueChange={(v) => setParam("rango", v ?? "this-month")}
-      >
-        <SelectTrigger size="sm" className="w-auto min-w-36">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {RANGE_PRESETS.map((preset) => (
-            <SelectItem key={preset} value={preset}>
-              {RANGE_LABELS[preset]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <RangePicker selection={selection} range={range} onChange={setParams} size="sm" />
 
       {/* Segmentado en vez de menú: son tres opciones y se cambian a menudo. */}
       <div
@@ -81,7 +60,7 @@ export function PeriodControls({
             key={value}
             type="button"
             aria-pressed={granularity === value}
-            onClick={() => setParam("agrupar", value)}
+            onClick={() => setParams({ agrupar: value })}
             className={cn(
               "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
               granularity === value

@@ -13,7 +13,13 @@ import type {
 } from "@/lib/queries/debts";
 import type { PersonDebtGroup, Receivable } from "@/lib/queries/receivables";
 import type { Settings } from "@/lib/queries/lookups";
-import { formatDateLabel, todayIso, type Granularity, type RangePreset } from "@/lib/periods";
+import {
+  formatDateLabel,
+  todayIso,
+  type DateRange,
+  type Granularity,
+  type RangeSelection,
+} from "@/lib/periods";
 import { settleSplit, unsettleSplit } from "@/actions/misc";
 import { seriesColor } from "@/lib/chart-theme";
 import { useMoneyFormatter } from "@/components/settings-provider";
@@ -40,7 +46,8 @@ import { cn } from "@/lib/utils";
 
 type Props = {
   activeTab: "me-deben" | "debo";
-  range: RangePreset;
+  selection: RangeSelection;
+  range: DateRange;
   granularity: Granularity;
   receivableGroups: PersonDebtGroup[];
   settledReceivables: Receivable[];
@@ -285,6 +292,7 @@ function MyDebtsTab({
   paidInRange,
   accounts,
   people,
+  selection,
   range,
   granularity,
   owed,
@@ -311,7 +319,7 @@ function MyDebtsTab({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <PeriodControls range={range} granularity={granularity} />
+        <PeriodControls selection={selection} range={range} granularity={granularity} />
         <DebtDialog accounts={accounts} people={people} />
       </div>
 

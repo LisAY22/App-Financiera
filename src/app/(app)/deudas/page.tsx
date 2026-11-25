@@ -16,10 +16,8 @@ import { getPeople, getSettings } from "@/lib/queries/lookups";
 import {
   defaultGranularity,
   isGranularity,
-  isRangePreset,
-  resolveRange,
+  rangeFromParams,
   type Granularity,
-  type RangePreset,
 } from "@/lib/periods";
 import { PageHeader } from "@/components/shell";
 import { DebtsTabs } from "@/components/debts/debts-tabs";
@@ -30,10 +28,7 @@ export default async function DeudasPage(props: PageProps<"/deudas">) {
   const userId = await requireUserId();
   const params = await props.searchParams;
 
-  const rangePreset: RangePreset = isRangePreset(params.rango)
-    ? params.rango
-    : "last-12-months";
-  const range = resolveRange(rangePreset);
+  const { selection, range } = rangeFromParams(params, "last-12-months");
   const granularity: Granularity = isGranularity(params.agrupar)
     ? params.agrupar
     : defaultGranularity(range);
@@ -73,7 +68,8 @@ export default async function DeudasPage(props: PageProps<"/deudas">) {
 
       <DebtsTabs
         activeTab={tab}
-        range={rangePreset}
+        selection={selection}
+        range={range}
         granularity={granularity}
         receivableGroups={groupByPerson(pending)}
         settledReceivables={settled.slice(0, 20)}

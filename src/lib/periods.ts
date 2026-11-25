@@ -204,3 +204,62 @@ export function isGranularity(value: unknown): value is Granularity {
 export function isRangePreset(value: unknown): value is RangePreset {
   return RANGE_PRESETS.includes(value as RangePreset);
 }
+
+/* ==================================================================== *
+ * Rango personalizado
+ * ==================================================================== */
+
+/**
+ * Lo que muestra el selector de periodo: un preset o un rango elegido en el
+ * calendario. El personalizado viaja en la URL como `desde` y `hasta`, así se
+ * puede compartir o volver a él con el botón de atrás igual que un preset.
+ */
+export type RangeSelection = RangePreset | "custom";
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Fecha civil válida: el formato solo no basta («2026-02-31» no existe). */
+export function isIsoDate(value: unknown): value is IsoDate {
+  if (typeof value !== "string" || !ISO_DATE.test(value)) return false;
+  const date = fromIso(value);
+  return !Number.isNaN(date.getTime()) && toIso(date) === value;
+}
+
+type RangeParams = { rango?: unknown; desde?: unknown; hasta?: unknown };
+
+/**
+ * Lee el periodo de los parámetros de la URL. Si hay `desde` y `hasta`
+ * válidos manda el rango personalizado; si no, el preset, y si tampoco, el
+ * valor por defecto de la página. Un rango al revés se voltea en vez de
+ * devolver un periodo vacío que no muestra nada.
+ */
+export function rangeFromParams(
+  params: RangeParams,
+  fallback: RangePreset,
+  reference = new Date(),
+): { selection: RangeSelection; range: DateRange } {
+  if (isIsoDate(params.desde) && isIsoDate(params.hasta)) {
+    const [from, to] =
+      params.desde <= params.hasta
+        ? [params.desde, params.hasta]
+        : [params.hasta, params.desde];
+    return { selection: "custom", range: { from, to } };
+  }
+
+  const preset = isRangePreset(params.rango) ? params.rango : fallback;
+  return { selection: preset, range: resolveRange(preset, reference) };
+}
+
+/** «1 mar – 15 abr 2026», o con los dos años si el rango cruza de año. */
+export function formatRangeLabel(range: DateRange): string {
+  const from = fromIso(range.from);
+  const to = fromIso(range.to);
+  if (range.from === range.to) return format(from, "d MMM yyyy", { locale: es });
+  const sameYear = from.getFullYear() === to.getFullYear();
+  return `${format(from, sameYear ? "d MMM" : "d MMM yyyy", { locale: es })} – ${format(to, "d MMM yyyy", { locale: es })}`;
+}
+
+/** Etiqueta del periodo elegido, para encabezados y descripciones. */
+export function selectionLabel(selection: RangeSelection, range: DateRange): string {
+  return selection === "custom" ? formatRangeLabel(range) : RANGE_LABELS[selection];
+}

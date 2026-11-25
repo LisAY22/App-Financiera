@@ -5,7 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Search, X } from "lucide-react";
 import type { Category } from "@/db/schema";
 import type { AccountWithBalance } from "@/lib/queries/balances";
-import { RANGE_LABELS, RANGE_PRESETS, type RangePreset } from "@/lib/periods";
+import type { DateRange, RangeSelection } from "@/lib/periods";
+import { RangePicker, type RangeParamUpdate } from "@/components/range-picker";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,7 @@ const TYPE_OPTIONS = [
 export function TransactionFiltersBar({
   categories,
   accounts,
+  selection,
   range,
   type,
   categoryId,
@@ -37,7 +39,8 @@ export function TransactionFiltersBar({
 }: {
   categories: Category[];
   accounts: AccountWithBalance[];
-  range: RangePreset;
+  selection: RangeSelection;
+  range: DateRange;
   type?: string;
   categoryId?: string;
   accountId?: string;
@@ -48,17 +51,24 @@ export function TransactionFiltersBar({
   const searchParams = useSearchParams();
   const [query, setQuery] = useState(search ?? "");
 
-  const setParam = useCallback(
-    (key: string, value: string | undefined) => {
+  const setParams = useCallback(
+    (update: Record<string, string | undefined>) => {
       const params = new URLSearchParams(searchParams.toString());
-      if (!value || value === ALL) params.delete(key);
-      else params.set(key, value);
+      for (const [key, value] of Object.entries(update)) {
+        if (!value || value === ALL) params.delete(key);
+        else params.set(key, value);
+      }
       // Cambiar un filtro siempre vuelve a la primera página: quedarse en la 5
       // de un resultado que ahora tiene 2 muestra una lista vacía sin razón.
       params.delete("pagina");
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router, searchParams],
+  );
+
+  const setParam = useCallback(
+    (key: string, value: string | undefined) => setParams({ [key]: value }),
+    [setParams],
   );
 
   // La búsqueda espera a que dejes de teclear en vez de consultar por letra.
@@ -99,18 +109,11 @@ export function TransactionFiltersBar({
         />
       </div>
 
-      <Select items={RANGE_LABELS} value={range} onValueChange={(v) => setParam("rango", v ?? undefined)}>
-        <SelectTrigger className="w-auto min-w-36">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {RANGE_PRESETS.map((preset) => (
-            <SelectItem key={preset} value={preset}>
-              {RANGE_LABELS[preset]}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <RangePicker
+        selection={selection}
+        range={range}
+        onChange={(update: RangeParamUpdate) => setParams(update)}
+      />
 
       <Select items={typeItems} value={type ?? ALL} onValueChange={(v) => setParam("tipo", v ?? undefined)}>
         <SelectTrigger className="w-auto min-w-32">

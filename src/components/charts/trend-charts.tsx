@@ -126,6 +126,7 @@ export function NetWorthChart({
   const format = useMoneyFormatter();
   const axisFormat = useAxisFormatter();
   const hasDebt = data.some((p) => p.debt > 0);
+  const hasReceivable = data.some((p) => p.receivable > 0);
 
   if (data.length === 0) return <ChartEmpty message="Sin datos todavía." />;
 
@@ -151,6 +152,9 @@ export function NetWorthChart({
                     title={bucketTitle(String(label), granularity)}
                     rows={[
                       { label: "Activos", value: format(point.assets), color: "var(--chart-1)" },
+                      ...(hasReceivable
+                        ? [{ label: "Te deben", value: format(point.receivable) }]
+                        : []),
                       ...(hasDebt
                         ? [
                             {
